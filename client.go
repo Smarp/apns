@@ -1,6 +1,7 @@
 package apns
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"net"
@@ -27,6 +28,7 @@ type APNSClient interface {
 // but if you prefer you can use the CertificateBase64
 // and KeyBase64 fields to store the actual contents.
 type Client struct {
+	ctx               context.Context
 	Gateway           string
 	CertificateFile   string
 	CertificateBase64 string
@@ -36,8 +38,9 @@ type Client struct {
 
 // BareClient can be used to set the contents of your
 // certificate and key blocks manually.
-func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
+func BareClient(ctx context.Context, gateway, certificateBase64, keyBase64 string) (c *Client) {
 	c = new(Client)
+	c.ctx = ctx
 	c.Gateway = gateway
 	c.CertificateBase64 = certificateBase64
 	c.KeyBase64 = keyBase64
@@ -46,8 +49,9 @@ func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
 
 // NewClient assumes you'll be passing in paths that
 // point to your certificate and key.
-func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
+func NewClient(ctx context.Context, gateway, certificateFile, keyFile string) (c *Client) {
 	c = new(Client)
+	c.ctx = ctx
 	c.Gateway = gateway
 	c.CertificateFile = certificateFile
 	c.KeyFile = keyFile
@@ -111,7 +115,8 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 		ServerName:   gatewayParts[0],
 	}
 
-	conn, err := net.Dial("tcp", client.Gateway)
+	var d net.Dialer
+	conn, err := d.DialContext(client.ctx, "tcp", client.Gateway)
 	if err != nil {
 		return err
 	}
